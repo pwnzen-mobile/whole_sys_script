@@ -129,7 +129,7 @@ def lipo_file(tmp_prog_arg):
 			continue 
 		arch_size = arch_size + 1
 	if arch_size == 1 :
-		os.copy(tmp_prog_arg.mach_file_path, tmp_prog_arg.thin_file_path)
+		shutil.copy(tmp_prog_arg.mach_file_path, tmp_prog_arg.thin_file_path)
 		return 
 	lipo_thin_cmd = tools_dir + " " + tmp_prog_arg.mach_file_path + " -thin arm64 -output " + tmp_prog_arg.thin_file_path
 	p = subprocess.Popen(lipo_thin_cmd, shell=True, stdout = PIPE, stderr = PIPE)

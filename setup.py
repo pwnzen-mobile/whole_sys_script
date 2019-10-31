@@ -4,70 +4,87 @@ import getopt
 import zipfile
 from subprocess import Popen, PIPE
 import subprocess
+import shutil
 
 class whole_arg:
 	inputfile = ""
-	outputfile = ""
+	outputfile = os.getcwd() + "/output.html"
 	binaryfile = ""
+	rule_file_path = os.getcwd() +  "/rules/rules.json"
 	tools = ["llvm-dec","llvm-lipo","llvm-slicer"]
 	magic_number_list = [b'\xfe\xed\xfa\xce',b'\xce\xfa\xed\xfe',b'\xfe\xed\xfa\xcf',b'\xcf\xfa\xed\xfe',b'\xca\xfe\xba\xbe',b'\xca\xfe\xba\xbf']
 	mach_file_path = os.getcwd()+"/tmp/mach_o_file"
+	tmp_file_path = os.getcwd()+"/tmp"
 	thin_file_path = os.getcwd()+"/tmp/thin_file"
+	ir_file_path = os.getcwd() + "/tmp/n_ir"
 	def set_inputfile_name(self, tmp_str):
-		self.inputfile = tmp_str
-	def set_outputfile_name(self, tmp_str):
-		self.outputfile = tmp_str
-	def set_binaryfile_name(self, tmp_str):
-		self.binaryfile = tmp_str
+		self.inputfile = os.getcwd() + "/" + tmp_str
 
 
 def check_python_version():
+	print("start to check python version")
 	if sys.version_info.major<3:
 		print("python version should > 3")
 
 def get_arg(args, program_arg):
+	print("start to get program arg")
 	try:
-		opts, special_arg = getopt.getopt(args, "hi:o:",["help","inputfile=","outputfile="])
+		opts, special_arg = getopt.getopt(args, "hi:",["help","inputfile="])
 	except getopt.GetoptError:
-		print("setup.py -i <inputfile> -o <outputfile>")
+		print("setup.py -i <inputfile> ")
 		sys.exit(2)
 	for opt, arg in opts:
 		if opt in ("-h","--help"):
-			print("setup.py -i <inputfile> -o <outputfile>")
+			print("setup.py -i <inputfile>")
 			sys.exit()
 		elif opt in ("-i","--inputfile"):
 			program_arg.set_inputfile_name(arg)
-		elif opt in ("-o","--outputfile"):
-			program_arg.set_outputfile_name(arg)
+	if program_arg.inputfile == "":
+		print("no input file of the command")
+		sys.exit()
+
 
 def check_tools(tmp_prog_arg):
+	print("start to check tools")
 	cur_path = os.getcwd()
-	tool_path = ""
-	for root, dirs, files in os.walk(cur_path,topdown=False):
-		if(dirs == "tools"):
-			tool_path = root + dirs
-	if tool_path == "":
+	tool_path = cur_path + "/tools"
+	if os.path.exists(tool_path)==False:
 		print("there is no tools dir in cur path")
 		sys.exit()
 	tmp_tools = tmp_prog_arg.tools
 	tmp_files_list = [] 
 	for root, dirs, files in os.walk(tool_path, topdown=False):
-		tmp_files_list.append(files)
+		for tmp_file in files:
+			tmp_files_list.append(tmp_file)
 	for tmp_tool_name in tmp_tools:
 		if tmp_tool_name not in tmp_files_list:
 			print("tool file "+tmp_tool_name+" does not exist")
 			sys.exit()
+
+
 def check_rules(tmp_prog_arg):
-	cur_path = os.getcwd()
-	rule_path = ""
-	for root, dirs, files in os.walk(cur_path, topdown=False):
-		if(dirs == tools)
+	print("start to check rules")
+	if os.path.exists(tmp_prog_arg.rule_file_path) == False:
+		print("there is no rules.json file in rule dir")
+		sys.exit()
+
+def check_tmp(tmp_prog_arg):
+	print("start to check tmp ")
+	if os.path.exists(tmp_prog_arg.tmp_file_path) == False:
+		os.mkdir(tmp_prog_arg.tmp_file_path)
+
 
 def is_the_main_execute_file(file_name):
 	tmp_name_list = file_name.split("/")
+	list_size = len(tmp_name_list)
+	final_name = tmp_name_list[list_size-1]
+	if (final_name + ".app") == tmp_name_list[1]:
+		return True
+	return False
 
 
 def unzip_inputfile(tmp_prog_arg):
+	print("start to unzip input file")
 	if(os.path.exists(tmp_prog_arg.inputfile) == False):
 		print("input file does not exists")
 		sys.exit()
@@ -86,26 +103,66 @@ def unzip_inputfile(tmp_prog_arg):
 	if(mach_file == ""):
 		print("no executable mach-o file")
 		sys.exit()
-	ipa_file.extract(mach_file, path = tmp_prog_arg.mach_file_path)
+	ipa_file.extract(mach_file, path = tmp_prog_arg.tmp_file_path)
+	shutil.copy(tmp_prog_arg.tmp_file_path + "/" + mach_file, tmp_prog_arg.mach_file_path)
 
 def lipo_file(tmp_prog_arg):
+	print("start to thin mach-o file")
 	tools_dir = os.getcwd() + "/tools/llvm-lipo"
-	lipo_info_cmd = tools_dir + " -info " +tmp_prog_arg.mach_file_path
+	lipo_info_cmd = tools_dir + " -archs " +tmp_prog_arg.mach_file_path
 	p = subprocess.Popen(lipo_info_cmd, shell = True, stdout = PIPE, stderr = PIPE)
 	p.wait()
 	if p.returncode !=0 : 
-		print("llvm-lipo execute failed")
+		print("command : " + lipo_info_cmd + " failed")
 		sys.exit()
-	std_output = p.stdout
-	#print(std_output)
-	if "arm64" not in std_output:
-		print("there is no Arm64 arch in the mach-o file")
+	std_output = p.stdout.readlines()
+	whole_arch_name = bytes.join(b'',std_output).decode('utf-8')
+	arch_name_list = whole_arch_name.split(" ")
+	if "arm64" not in arch_name_list:
+		print("there is no arm64 arch in the mach-o file")
 		sys.exit()
-	if "Non-fat" in std_output:
-		tmp_prog_arg.thin_file_path = tmp_prog_arg.mach_file_path
+	arch_size = 0;
+	for tmp_arch_name in arch_name_list:
+		if tmp_arch_name == "\n":
+			continue
+		if tmp_arch_name == "":
+			continue 
+		arch_size = arch_size + 1
+	if arch_size == 1 :
+		os.copy(tmp_prog_arg.mach_file_path, tmp_prog_arg.thin_file_path)
 		return 
-	lipo_thin_cmd = tools_dir + " " + tmp_prog_arg.mach_file_path + " -thin arm64" + 
+	lipo_thin_cmd = tools_dir + " " + tmp_prog_arg.mach_file_path + " -thin arm64 -output " + tmp_prog_arg.thin_file_path
+	p = subprocess.Popen(lipo_thin_cmd, shell=True, stdout = PIPE, stderr = PIPE)
+	p.wait()
+	if p.returncode !=0 :
+		print("command : " + lipo_thin_cmd + " failed")
+		sys.exit()
 
+def ios_to_ir(tmp_prog_arg):
+	print("start to translate arm64 to IR")
+	tools_dir = os.getcwd() + "/tools/llvm-dec"
+	llvm_dec_cmd = tools_dir + " " + tmp_prog_arg.thin_file_path + " -bc " + " -O1 " + " -o " + tmp_prog_arg.ir_file_path
+	p = subprocess.Popen(llvm_dec_cmd, shell = True, stdout = PIPE, stderr = PIPE)
+	p.wait()
+	if p.returncode !=0 :
+		print("command : " + llvm_dec_cmd + " failed")
+		sys.exit()
+
+def slice_code(tmp_prog_arg):
+	print("start to slice IR to check rules")
+	tools_dir = os.getcwd() + "/tools/llvm-slicer"
+	llvm_slicer_cmd = tools_dir + " " + tmp_prog_arg.ir_file_path + " -binary " + tmp_prog_arg.thin_file_path + " -o /dev/null " + " -rules " + tmp_prog_arg.rule_file_path + " -r " + tmp_prog_arg.outputfile
+	p = subprocess.Popen(llvm_slicer_cmd, shell = True, stdout = PIPE, stderr = PIPE)
+	p.wait()
+	if p.returncode !=0:
+		print("command : " + llvm_slicer_cmd + " failed")
+		sys.exit()
+
+def delete_tmp_file(tmp_prog_arg):
+	print("start to delete tmp file ")
+	tmp_path = os.getcwd()+"/tmp"
+	shutil.rmtree(tmp_path)
+	os.mkdir(tmp_path)
 
 
 
@@ -116,5 +173,10 @@ if __name__ == "__main__":
 	check_python_version()
 	get_arg(sys.argv[1:],prog_arg)
 	check_tools(prog_arg)
+	check_rules(prog_arg)
+	check_tmp(prog_arg)
 	unzip_inputfile(prog_arg)
 	lipo_file(prog_arg)
+	ios_to_ir(prog_arg)
+	slice_code(prog_arg)
+	delete_tmp_file(prog_arg)

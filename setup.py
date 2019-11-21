@@ -9,8 +9,10 @@ import shutil
 class whole_arg:
 	inputfile = ""
 	outputfile = os.getcwd() + "/output.html"
+	scan_outputfile = os.getcwd() + "/scan_output.html"
 	binaryfile = ""
 	rule_file_path = os.getcwd() +  "/rules/rules.json"
+	scan_rule_file_path = os.getcwd() + "/rules/scan_rules.json"
 	tools = ["llvm-dec","llvm-lipo","llvm-slicer"]
 	magic_number_list = [b'\xfe\xed\xfa\xce',b'\xce\xfa\xed\xfe',b'\xfe\xed\xfa\xcf',b'\xcf\xfa\xed\xfe',b'\xca\xfe\xba\xbe',b'\xca\xfe\xba\xbf']
 	mach_file_path = os.getcwd()+"/tmp/mach_o_file"
@@ -65,6 +67,9 @@ def check_tools(tmp_prog_arg):
 def check_rules(tmp_prog_arg):
 	print("start to check rules")
 	if os.path.exists(tmp_prog_arg.rule_file_path) == False:
+		print("there is no rules.json file in rule dir")
+		sys.exit()
+	if os.path.exists(tmp_prog_arg.scan_rule_file_path) == False:
 		print("there is no rules.json file in rule dir")
 		sys.exit()
 
@@ -151,7 +156,7 @@ def ios_to_ir(tmp_prog_arg):
 def slice_code(tmp_prog_arg):
 	print("start to slice IR to check rules")
 	tools_dir = os.getcwd() + "/tools/llvm-slicer"
-	llvm_slicer_cmd = tools_dir + " " + tmp_prog_arg.ir_file_path + " -binary " + tmp_prog_arg.thin_file_path + " -o /dev/null " + " -rules " + tmp_prog_arg.rule_file_path + " -r " + tmp_prog_arg.outputfile
+	llvm_slicer_cmd = tools_dir + " " + tmp_prog_arg.ir_file_path + " -binary " + tmp_prog_arg.thin_file_path + " -o /dev/null " + " -rules " + tmp_prog_arg.rule_file_path + " -r " + tmp_prog_arg.outputfile + " -scan_rules " + tmp_prog_arg.scan_rule_file_path + " -sr " + tmp_prog_arg.scan_outputfile
 	p = subprocess.Popen(llvm_slicer_cmd, shell = True, stdout = PIPE, stderr = PIPE)
 	p.wait()
 	if p.returncode !=0:

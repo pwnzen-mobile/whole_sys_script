@@ -5,6 +5,8 @@ import zipfile
 from subprocess import Popen, PIPE
 import subprocess
 import shutil
+import json
+import plistlib
 
 class whole_arg:
 	inputfile = ""
@@ -13,11 +15,14 @@ class whole_arg:
 	binaryfile = ""
 	rule_file_path = os.getcwd() +  "/rules/rules.json"
 	scan_rule_file_path = os.getcwd() + "/rules/scan_rules.json"
+	permission_rule_file = os.getcwd() + "/rules/permission_rules.json"
 	tools = ["llvm-dec","llvm-lipo","llvm-slicer"]
 	magic_number_list = [b'\xfe\xed\xfa\xce',b'\xce\xfa\xed\xfe',b'\xfe\xed\xfa\xcf',b'\xcf\xfa\xed\xfe',b'\xca\xfe\xba\xbe',b'\xca\xfe\xba\xbf']
-	mach_file_path = os.getcwd()+"/tmp/mach_o_file"
-	tmp_file_path = os.getcwd()+"/tmp"
-	thin_file_path = os.getcwd()+"/tmp/thin_file"
+	mach_file_path = os.getcwd() + "/tmp/mach_o_file"
+	plist_file_path = os.getcwd() + "/tmp/plist_file"
+	all_plist_file_path = []
+	tmp_file_path = os.getcwd() + "/tmp"
+	thin_file_path = os.getcwd() + "/tmp/thin_file"
 	ir_file_path = os.getcwd() + "/tmp/n_ir"
 	def set_inputfile_name(self, tmp_str):
 		self.inputfile = os.getcwd() + "/" + tmp_str
@@ -111,6 +116,31 @@ def unzip_inputfile(tmp_prog_arg):
 	ipa_file.extract(mach_file, path = tmp_prog_arg.tmp_file_path)
 	shutil.copy(tmp_prog_arg.tmp_file_path + "/" + mach_file, tmp_prog_arg.mach_file_path)
 
+def unzip_allplistfile(tmp_prog_arg):
+	print("start to unzip all plist file")
+	if(os.path.exists(tmp_prog_arg.inputfile) == False):
+		print("input file does not exists")
+		sys.exit()
+	if(zipfile.is_zipfile(tmp_prog_arg.inputfile) == False):
+		print("input file is not a zip file ")
+		sys.exit()
+	ipa_file = zipfile.ZipFile(tmp_prog_arg.inputfile)
+	name_list = ipa_file.namelist()
+	plist_file = []
+	for zip_file_name in name_list:
+		if zpi_file_name.endswith("info.plist"):
+			plist_file.append(zip_file_name)
+	if(len(plist_file)==0):
+		print("did not find info.plist")
+		sys.exit()
+	plist_file_size = 0
+	for tmp_plist_file in plist_file:
+		ipa_file.extract(tmp_plist_file, path = tmp_prog_arg.tmp_file_path)
+		shutil.copy(tmp_prog_arg.tmp_file_path + "/" + ipa_file, tmp_prog_arg.plist_file_path + str(plist_file_size))
+		tmp_prog_arg.all_plist_file_path.append(tmp_prog_arg.plist_file_path + str(plist_file_size))
+		plist_file_size = plist_file_size + 1
+
+
 def lipo_file(tmp_prog_arg):
 	print("start to thin mach-o file")
 	tools_dir = os.getcwd() + "/tools/llvm-lipo"
@@ -169,6 +199,11 @@ def delete_tmp_file(tmp_prog_arg):
 	shutil.rmtree(tmp_path)
 	os.mkdir(tmp_path)
 
+def get_and_check_permissions(tmp_prog_arg):
+	permission_rule_file = open(tmp_prog_arg.permission_rule_file)
+	rule_list = json.load(permission_rule_file)
+	for tmp_rule in rule_list:
+		if
 
 
 
@@ -181,6 +216,8 @@ if __name__ == "__main__":
 	check_rules(prog_arg)
 	check_tmp(prog_arg)
 	unzip_inputfile(prog_arg)
+	unzip_allplistfile(prog_arg)
+	get_and_check_permissions(prog_arg)
 	lipo_file(prog_arg)
 	ios_to_ir(prog_arg)
 	slice_code(prog_arg)

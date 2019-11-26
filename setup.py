@@ -202,8 +202,10 @@ def delete_tmp_file(tmp_prog_arg):
 def get_and_check_permissions(tmp_prog_arg):
 	permission_rule_file = open(tmp_prog_arg.permission_rule_file)
 	rule_list = json.load(permission_rule_file)
-	for tmp_rule in rule_list:
-		if
+	for plist_file_path in tmp_prog_arg.all_plist_file_path:
+		plist_file = plistlib.readPlist(plist_file_path)
+		
+
 
 
 

@@ -12,6 +12,7 @@ class whole_arg:
 	inputfile = ""
 	outputfile = os.getcwd() + "/output.html"
 	scan_outputfile = os.getcwd() + "/scan_output.html"
+	permission_outputfile = os.getcwd() + "/permission_output.html"
 	binaryfile = ""
 	rule_file_path = os.getcwd() +  "/rules/rules.json"
 	scan_rule_file_path = os.getcwd() + "/rules/scan_rules.json"
@@ -128,15 +129,16 @@ def unzip_allplistfile(tmp_prog_arg):
 	name_list = ipa_file.namelist()
 	plist_file = []
 	for zip_file_name in name_list:
-		if zpi_file_name.endswith("info.plist"):
+		if zip_file_name.endswith("Info.plist"):
 			plist_file.append(zip_file_name)
 	if(len(plist_file)==0):
 		print("did not find info.plist")
 		sys.exit()
 	plist_file_size = 0
 	for tmp_plist_file in plist_file:
+		print(tmp_plist_file)
 		ipa_file.extract(tmp_plist_file, path = tmp_prog_arg.tmp_file_path)
-		shutil.copy(tmp_prog_arg.tmp_file_path + "/" + ipa_file, tmp_prog_arg.plist_file_path + str(plist_file_size))
+		shutil.copy(tmp_prog_arg.tmp_file_path + "/" + tmp_plist_file, tmp_prog_arg.plist_file_path + str(plist_file_size))
 		tmp_prog_arg.all_plist_file_path.append(tmp_prog_arg.plist_file_path + str(plist_file_size))
 		plist_file_size = plist_file_size + 1
 
@@ -199,12 +201,57 @@ def delete_tmp_file(tmp_prog_arg):
 	shutil.rmtree(tmp_path)
 	os.mkdir(tmp_path)
 
+def print_permission_check_rule(tmp_prog_arg, rule_list):
+	permission_result_html = open(tmp_prog_arg.permission_outputfile, "w")
+	head = """
+	<html>
+	<head>
+	 <meta charset="utf-8">
+        <title>permission is requested</title>
+	<link rel="stylesheet" href="scripts/bootstrap.min.css">
+	<link rel="stylesheet" href="scripts/report.css">
+	<script src="scripts/jquery.min.js"></script>
+	<script src="scripts/bootstrap.min.js"></script>
+	<script src="scripts/helper.js"></script>
+	</head>
+	<body>
+	"""
+	for rule in rule_list:
+		head = head + "<div>"
+		head = head + "<h1>" + rule["name"] + "</h1>"
+		head = head + "<h3>" + rule["description"] + "</h3>"
+		head = head + "</div>"
+	head = head + """
+	</body>
+	</html>
+	"""
+	permission_result_html.write(head)
+	permission_result_html.close()
+
 def get_and_check_permissions(tmp_prog_arg):
 	permission_rule_file = open(tmp_prog_arg.permission_rule_file)
 	rule_list = json.load(permission_rule_file)
+	trigger_rule_list = []
 	for plist_file_path in tmp_prog_arg.all_plist_file_path:
+		#plist_file = open(plist_file_path,"rb")
+		#plist_lib = plistlib.loads(plist_file_path)
 		plist_file = plistlib.readPlist(plist_file_path)
-		
+		for rule in rule_list:
+			if(rule["key"] == None):
+				print("rule is not correct")
+				sys.exit()
+			if (rule["key"] not in plist_file.keys()):
+				continue
+			if(rule["type"] == "any"):
+				trigger_rule_list.append(rule)
+			if(rule["type"] == "equal"):
+				if(plist_file[rule["key"]] == rule["value"]):
+					trigger_rule_list.append(rule)
+			if(rule["type"] == "not equal"):
+				if(plist_file[rule["key"]] != rule["value"]):
+					trigger_rule_list.append(rule)
+	print_permission_check_rule(tmp_prog_arg, trigger_rule_list)
+			#if(rule["key"])
 
 
 

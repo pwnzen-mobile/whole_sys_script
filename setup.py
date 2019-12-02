@@ -7,6 +7,7 @@ import subprocess
 import shutil
 import json
 import plistlib
+from nostril import nonsense
 
 class whole_arg:
 	inputfile = ""
@@ -17,7 +18,7 @@ class whole_arg:
 	rule_file_path = os.getcwd() +  "/rules/rules.json"
 	scan_rule_file_path = os.getcwd() + "/rules/scan_rules.json"
 	permission_rule_file = os.getcwd() + "/rules/permission_rules.json"
-	tools = ["llvm-dec","llvm-lipo","llvm-slicer"]
+	tools = ["llvm-dec","llvm-lipo","llvm-slicer","jtool"]
 	magic_number_list = [b'\xfe\xed\xfa\xce',b'\xce\xfa\xed\xfe',b'\xfe\xed\xfa\xcf',b'\xcf\xfa\xed\xfe',b'\xca\xfe\xba\xbe',b'\xca\xfe\xba\xbf']
 	mach_file_path = os.getcwd() + "/tmp/mach_o_file"
 	plist_file_path = os.getcwd() + "/tmp/plist_file"
@@ -25,6 +26,7 @@ class whole_arg:
 	tmp_file_path = os.getcwd() + "/tmp"
 	thin_file_path = os.getcwd() + "/tmp/thin_file"
 	ir_file_path = os.getcwd() + "/tmp/n_ir"
+	extract_header_file_path = os.getcwd() + "/tmp/header_file.txt"
 	def set_inputfile_name(self, tmp_str):
 		self.inputfile = os.getcwd() + "/" + tmp_str
 
@@ -129,7 +131,7 @@ def unzip_allplistfile(tmp_prog_arg):
 	name_list = ipa_file.namelist()
 	plist_file = []
 	for zip_file_name in name_list:
-		if zip_file_name.endswith("Info.plist"):
+		if zip_file_name.endswith("/Info.plist"):
 			plist_file.append(zip_file_name)
 	if(len(plist_file)==0):
 		print("did not find info.plist")
@@ -201,6 +203,44 @@ def delete_tmp_file(tmp_prog_arg):
 	shutil.rmtree(tmp_path)
 	os.mkdir(tmp_path)
 
+def extract_header_file(tmp_prog_arg):
+	print("start to extract header file ")
+	tools_dir = os.getcwd() + "/tools/jtool"
+	extract_cmd = tools_dir + "  -d objc " + tmp_prog_arg.thin_file_path + " > " + tmp_prog_arg.extract_header_file_path
+	p = subprocess.Popen(extract_cmd,shell = True, stdout = PIPE, stderr = PIPE)
+	p.wait()
+	if p.returncode !=0:
+		print("command : " + extract_cmd + " failed")
+		sys.exit()
+
+def check_if_obfuscated(tmp_prog_arg):
+	print("start to check obfuscated")
+	extract_header_file(tmp_prog_arg)
+	tmp_header_file = open(tmp_prog_arg.extract_header_file_path)
+	tmp_nonsense = 0
+	tmp_real = 0 
+	for tmp_s in tmp_header_file.readlines():
+		#if(tmp_s.find("*/ ")==-1):
+		#	continue
+		#tmp_s = tmp_s[tmp_s.find("*/ ")+3:]
+		#if(tmp_s.find("// ") == -1):
+		#	print("header file extract not correct")
+		#	sys.exit()
+		#tmp_s = tmp_s[:tmp_s.find("// ")]
+		if(len(tmp_s)<=6):
+			continue
+		if nonsense(tmp_s):
+			tmp_nonsense = tmp_nonsense + 1
+		else:
+			tmp_real = tmp_real+1
+	if tmp_nonsense + tmp_real == 0 :
+		print("didn't find useful name")
+		sys.exit()
+	tmp_result = float(tmp_real)/ (tmp_nonsense + tmp_real)
+	if tmp_result<0.9 :
+		print("this application is obfuscated")
+		sys.exit()
+
 def print_permission_check_rule(tmp_prog_arg, rule_list):
 	permission_result_html = open(tmp_prog_arg.permission_outputfile, "w")
 	head = """
@@ -267,6 +307,7 @@ if __name__ == "__main__":
 	unzip_inputfile(prog_arg)
 	unzip_allplistfile(prog_arg)
 	get_and_check_permissions(prog_arg)
+	check_if_obfuscated(prog_arg)
 	lipo_file(prog_arg)
 	ios_to_ir(prog_arg)
 	slice_code(prog_arg)

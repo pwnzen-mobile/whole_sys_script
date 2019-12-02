@@ -93,6 +93,10 @@ def is_the_main_execute_file(file_name):
 	final_name = tmp_name_list[list_size-1]
 	if (final_name + ".app") == tmp_name_list[1]:
 		return True
+	if (final_name + ".app") == tmp_name_list[2]:
+		return True
+	if (final_name + ".app") == tmp_name_list[0]:
+		return True
 	return False
 
 

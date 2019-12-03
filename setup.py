@@ -213,7 +213,7 @@ def extract_header_file(tmp_prog_arg):
 	extract_cmd = tools_dir + "  -d objc " + tmp_prog_arg.thin_file_path + " > " + tmp_prog_arg.extract_header_file_path
 	p = subprocess.Popen(extract_cmd,shell = True, stdout = PIPE, stderr = PIPE)
 	p.wait()
-	if p.returncode !=0:
+	if (os.path.exists(tmp_prog_arg.extract_header_file_path)==False):
 		print("command : " + extract_cmd + " failed")
 		sys.exit()
 

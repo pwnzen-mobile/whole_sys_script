@@ -121,6 +121,7 @@ def unzip_inputfile(tmp_prog_arg):
 		print("no executable mach-o file")
 		sys.exit()
 	ipa_file.extract(mach_file, path = tmp_prog_arg.tmp_file_path)
+	#print(mach_file)
 	shutil.copy(tmp_prog_arg.tmp_file_path + "/" + mach_file, tmp_prog_arg.mach_file_path)
 
 def unzip_allplistfile(tmp_prog_arg):
@@ -142,7 +143,7 @@ def unzip_allplistfile(tmp_prog_arg):
 		sys.exit()
 	plist_file_size = 0
 	for tmp_plist_file in plist_file:
-		print(tmp_plist_file)
+		#print(tmp_plist_file)
 		ipa_file.extract(tmp_plist_file, path = tmp_prog_arg.tmp_file_path)
 		shutil.copy(tmp_prog_arg.tmp_file_path + "/" + tmp_plist_file, tmp_prog_arg.plist_file_path + str(plist_file_size))
 		tmp_prog_arg.all_plist_file_path.append(tmp_prog_arg.plist_file_path + str(plist_file_size))
@@ -184,7 +185,8 @@ def lipo_file(tmp_prog_arg):
 def ios_to_ir(tmp_prog_arg):
 	print("start to translate arm64 to IR")
 	tools_dir = os.getcwd() + "/tools/llvm-dec"
-	llvm_dec_cmd = tools_dir + " " + tmp_prog_arg.thin_file_path + " -bc " + " -O1 " + " -o " + tmp_prog_arg.ir_file_path
+	llvm_dec_cmd = tools_dir + " " + tmp_prog_arg.thin_file_path + " -bc " + " -O1 -MC_opt" + " -o " + tmp_prog_arg.ir_file_path
+	print(llvm_dec_cmd)
 	p = subprocess.Popen(llvm_dec_cmd, shell = True, stdout = PIPE, stderr = PIPE)
 	p.wait()
 	if p.returncode !=0 :
@@ -195,8 +197,9 @@ def slice_code(tmp_prog_arg):
 	print("start to slice IR to check rules")
 	tools_dir = os.getcwd() + "/tools/llvm-slicer"
 	llvm_slicer_cmd = tools_dir + " " + tmp_prog_arg.ir_file_path + " -binary " + tmp_prog_arg.thin_file_path + " -o /dev/null " + " -rules " + tmp_prog_arg.rule_file_path + " -r " + tmp_prog_arg.outputfile + " -scan_rules " + tmp_prog_arg.scan_rule_file_path + " -sr " + tmp_prog_arg.scan_outputfile
+	print(llvm_slicer_cmd)
 	p = subprocess.Popen(llvm_slicer_cmd, shell = True, stdout = PIPE, stderr = PIPE)
-	p.wait()
+	p.communicate()
 	if p.returncode !=0:
 		print("command : " + llvm_slicer_cmd + " failed")
 		sys.exit()
@@ -211,6 +214,7 @@ def extract_header_file(tmp_prog_arg):
 	print("start to extract header file ")
 	tools_dir = os.getcwd() + "/tools/jtool"
 	extract_cmd = tools_dir + "  -d objc " + tmp_prog_arg.thin_file_path + " > " + tmp_prog_arg.extract_header_file_path
+	#print(extract_cmd)
 	p = subprocess.Popen(extract_cmd,shell = True, stdout = PIPE, stderr = PIPE)
 	p.wait()
 	if (os.path.exists(tmp_prog_arg.extract_header_file_path)==False):
@@ -231,8 +235,14 @@ def check_if_obfuscated(tmp_prog_arg):
 		#	print("header file extract not correct")
 		#	sys.exit()
 		#tmp_s = tmp_s[:tmp_s.find("// ")]
+		
+		tmp_s = tmp_s.replace("\n","")
+		for tmp_i in range(10):
+			tmp_s = tmp_s.replace(str(tmp_i),'')
 		if(len(tmp_s)<=6):
 			continue
+		#print(tmp_s)
+		#print(len(tmp_s))
 		if nonsense(tmp_s):
 			tmp_nonsense = tmp_nonsense + 1
 		else:
@@ -311,8 +321,8 @@ if __name__ == "__main__":
 	unzip_inputfile(prog_arg)
 	unzip_allplistfile(prog_arg)
 	get_and_check_permissions(prog_arg)
-	check_if_obfuscated(prog_arg)
 	lipo_file(prog_arg)
+	check_if_obfuscated(prog_arg)
 	ios_to_ir(prog_arg)
 	slice_code(prog_arg)
 	delete_tmp_file(prog_arg)

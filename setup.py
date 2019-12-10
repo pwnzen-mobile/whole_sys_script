@@ -281,6 +281,14 @@ def print_permission_check_rule(tmp_prog_arg, rule_list):
 	"""
 	permission_result_html.write(head)
 	permission_result_html.close()
+def chg_bool_to_string(bool_r):
+	if(isinstance(bool_r,bool)==False):
+		return bool_r
+	if(bool_r == True):
+		return "True"
+	else:
+		return "False"
+
 
 def check_rule(rule,plist_file):
 	if(rule["key"] == None):
@@ -291,10 +299,10 @@ def check_rule(rule,plist_file):
 	if(rule["type"] == "any"):
 		return True
 	if(rule["type"] == "equal"):
-		if(plist_file[rule["key"]] == rule["value"]):
+		if(chg_bool_to_string(plist_file[rule["key"]]) == rule["value"]):
 			return True
 	if(rule["type"] == "not equal"):
-		if(plist_file[rule["key"]] != rule["value"]):
+		if(chg_bool_to_string(plist_file[rule["key"]]) != rule["value"]):
 			return True
 	if(rule["type"] == "sub"):
 		if(isinstance(rule["value"],dict)==False):
@@ -303,7 +311,6 @@ def check_rule(rule,plist_file):
 		if(isinstance(plist_file[rule["key"]],dict)==False):
 			return False
 		return check_rule(rule["value"],plist_file[rule["key"]])
-	return False
 
 def get_and_check_permissions(tmp_prog_arg):
 	permission_rule_file = open(tmp_prog_arg.permission_rule_file)

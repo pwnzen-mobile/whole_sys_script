@@ -282,6 +282,29 @@ def print_permission_check_rule(tmp_prog_arg, rule_list):
 	permission_result_html.write(head)
 	permission_result_html.close()
 
+def check_rule(rule,plist_file):
+	if(rule["key"] == None):
+		print("rule is not correct")
+		sys.exit()
+	if(rule["key"] not in plist_file.keys()):
+		return False
+	if(rule["type"] == "any"):
+		return True
+	if(rule["type"] == "equal"):
+		if(plist_file[rule["key"]] == rule["value"]):
+			return True
+	if(rule["type"] == "not equal"):
+		if(plist_file[rule["key"]] != rule["value"]):
+			return True
+	if(rule["type"] == "sub"):
+		if(isinstance(rule["value"],dict)==False):
+			print("sub rule is not a dict")
+			sys.exit()
+		if(isinstance(plist_file[rule["key"]],dict)==False):
+			return False
+		return check_rule(rule["value"],plist_file[rule["key"]])
+	return False
+
 def get_and_check_permissions(tmp_prog_arg):
 	permission_rule_file = open(tmp_prog_arg.permission_rule_file)
 	rule_list = json.load(permission_rule_file)
@@ -291,21 +314,11 @@ def get_and_check_permissions(tmp_prog_arg):
 		#plist_lib = plistlib.loads(plist_file_path)
 		plist_file = plistlib.readPlist(plist_file_path)
 		for rule in rule_list:
-			if(rule["key"] == None):
-				print("rule is not correct")
-				sys.exit()
-			if (rule["key"] not in plist_file.keys()):
-				continue
-			if(rule["type"] == "any"):
+			if(check_rule(rule,plist_file)==True):
 				trigger_rule_list.append(rule)
-			if(rule["type"] == "equal"):
-				if(plist_file[rule["key"]] == rule["value"]):
-					trigger_rule_list.append(rule)
-			if(rule["type"] == "not equal"):
-				if(plist_file[rule["key"]] != rule["value"]):
-					trigger_rule_list.append(rule)
 	print_permission_check_rule(tmp_prog_arg, trigger_rule_list)
 			#if(rule["key"])
+
 
 
 

@@ -9,11 +9,21 @@ import json
 import plistlib
 from nostril import nonsense
 
+class app_info:
+	is_obfuscated = False
+	app_name = ""
+	app_package = ""
+	app_versionName = ""
+	app_versionCode = ""
+	app_minOsVersion = ""
+
+
 class whole_arg:
 	inputfile = ""
 	outputfile = os.getcwd() + "/output.html"
 	scan_outputfile = os.getcwd() + "/scan_output.html"
 	permission_outputfile = os.getcwd() + "/permission_output.html"
+	app_info_outputfile = os.getcwd() + "/info_output.html"
 	binaryfile = ""
 	rule_file_path = os.getcwd() +  "/rules/rules.json"
 	scan_rule_file_path = os.getcwd() + "/rules/scan_rules.json"
@@ -27,6 +37,7 @@ class whole_arg:
 	thin_file_path = os.getcwd() + "/tmp/thin_file"
 	ir_file_path = os.getcwd() + "/tmp/n_ir"
 	extract_header_file_path = os.getcwd() + "/tmp/header_file.txt"
+	my_app_info = app_info()
 	def set_inputfile_name(self, tmp_str):
 		self.inputfile = os.getcwd() + "/" + tmp_str
 
@@ -185,7 +196,7 @@ def lipo_file(tmp_prog_arg):
 def ios_to_ir(tmp_prog_arg):
 	print("start to translate arm64 to IR")
 	tools_dir = os.getcwd() + "/tools/llvm-dec"
-	llvm_dec_cmd = tools_dir + " " + tmp_prog_arg.thin_file_path + " -bc " + " -O1 -MC_opt" + " -o " + tmp_prog_arg.ir_file_path
+	llvm_dec_cmd = tools_dir + " " + tmp_prog_arg.thin_file_path + " -bc " + " -O1 -MC_opt " + " -o " + tmp_prog_arg.ir_file_path
 	print(llvm_dec_cmd)
 	p = subprocess.Popen(llvm_dec_cmd, shell = True, stdout = PIPE, stderr = PIPE)
 	p.wait()
@@ -215,6 +226,7 @@ def extract_header_file(tmp_prog_arg):
 	tools_dir = os.getcwd() + "/tools/jtool"
 	extract_cmd = tools_dir + "  -d objc " + tmp_prog_arg.thin_file_path + " > " + tmp_prog_arg.extract_header_file_path
 	#print(extract_cmd)
+	#print(extract_cmd)
 	p = subprocess.Popen(extract_cmd,shell = True, stdout = PIPE, stderr = PIPE)
 	p.wait()
 	if (os.path.exists(tmp_prog_arg.extract_header_file_path)==False):
@@ -239,6 +251,7 @@ def check_if_obfuscated(tmp_prog_arg):
 		tmp_s = tmp_s.replace("\n","")
 		for tmp_i in range(10):
 			tmp_s = tmp_s.replace(str(tmp_i),'')
+
 		if(len(tmp_s)<=6):
 			continue
 		#print(tmp_s)
@@ -253,7 +266,10 @@ def check_if_obfuscated(tmp_prog_arg):
 	tmp_result = float(tmp_real)/ (tmp_nonsense + tmp_real)
 	if tmp_result<0.9 :
 		print("this application is obfuscated")
-		sys.exit()
+		tmp_prog_arg.my_app_info.is_obfuscated = True
+	else:
+		tmp_prog_arg.my_app_info.is_obfuscated = False
+		#sys.exit()
 
 def print_permission_check_rule(tmp_prog_arg, rule_list):
 	permission_result_html = open(tmp_prog_arg.permission_outputfile, "w")
@@ -326,7 +342,51 @@ def get_and_check_permissions(tmp_prog_arg):
 	print_permission_check_rule(tmp_prog_arg, trigger_rule_list)
 			#if(rule["key"])
 
+def get_ipa_info(tmp_prog_arg):
+	for plist_file_path in tmp_prog_arg.all_plist_file_path:
+		#plist_file = open(plist_file_path,"rb")
+		#plist_lib = plistlib.loads(plist_file_path)
+		plist_file = plistlib.readPlist(plist_file_path)
+		if("CFBundleName" in plist_file.keys()):
+			tmp_prog_arg.my_app_info.app_name = plist_file["CFBundleName"]
+		if("CFBundleIdentifier" in plist_file.keys()):
+			tmp_prog_arg.my_app_info.app_package = plist_file["CFBundleIdentifier"]
+		if("CFBundleShortVersionString" in plist_file.keys()):
+			tmp_prog_arg.my_app_info.app_versionName = plist_file["CFBundleShortVersionString"]
+		if("CFBundleVersion" in plist_file.keys()):
+			tmp_prog_arg.my_app_info.app_versionCode = plist_file["CFBundleVersion"]
+		if("MinimumOSVersion" in plist_file.keys()):
+			tmp_prog_arg.my_app_info.app_minOsVersion = plist_file["MinimumOSVersion"]
 
+
+def print_app_info(tmp_prog_arg):
+	app_info_result_html = open(tmp_prog_arg.app_info_outputfile, "w")
+	head = """
+	<html>
+	<head>
+	 <meta charset="utf-8">
+        <title>app info </title>
+	<link rel="stylesheet" href="scripts/bootstrap.min.css">
+	<link rel="stylesheet" href="scripts/report.css">
+	<script src="scripts/jquery.min.js"></script>
+	<script src="scripts/bootstrap.min.js"></script>
+	<script src="scripts/helper.js"></script>
+	</head>
+	<body>
+	"""
+	head = head + "<div>"
+	head = head + "<h1> app name : " + tmp_prog_arg.my_app_info.app_name + "</h1>"
+	head = head + "<h2> app identifier : " + tmp_prog_arg.my_app_info.app_package + "</h2>"
+	head = head + "<h2> app short version string : " + tmp_prog_arg.my_app_info.app_versionName + "</h2>"
+	head = head + "<h2> app version : " + tmp_prog_arg.my_app_info.app_versionCode + "</h2>"
+	head = head + "<h2> app min os version : " + tmp_prog_arg.my_app_info.app_minOsVersion + "</h2>"
+	head = head + "</div>"
+	head = head + """
+	</body>
+	</html>
+	"""
+	app_info_result_html.write(head)
+	app_info_result_html.close()
 
 
 
@@ -340,9 +400,11 @@ if __name__ == "__main__":
 	check_tmp(prog_arg)
 	unzip_inputfile(prog_arg)
 	unzip_allplistfile(prog_arg)
-	get_and_check_permissions(prog_arg)
 	lipo_file(prog_arg)
 	check_if_obfuscated(prog_arg)
+	get_ipa_info(prog_arg)
+	print_app_info(prog_arg)
+	get_and_check_permissions(prog_arg)
 	ios_to_ir(prog_arg)
 	slice_code(prog_arg)
 	delete_tmp_file(prog_arg)

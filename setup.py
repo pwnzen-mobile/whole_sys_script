@@ -37,6 +37,7 @@ class whole_arg:
 	thin_file_path = os.getcwd() + "/tmp/thin_file"
 	ir_file_path = os.getcwd() + "/tmp/n_ir"
 	extract_header_file_path = os.getcwd() + "/tmp/header_file.txt"
+	main_plist_file_path = os.getcwd() + "/tmp/main_plist_file"
 	my_app_info = app_info()
 	def set_inputfile_name(self, tmp_str):
 		self.inputfile = os.getcwd() + "/" + tmp_str
@@ -104,12 +105,16 @@ def is_the_main_execute_file(file_name):
 	final_name = tmp_name_list[list_size-1]
 	if (final_name + ".app") == tmp_name_list[1]:
 		return True
-	if (final_name + ".app") == tmp_name_list[2]:
-		return True
 	if (final_name + ".app") == tmp_name_list[0]:
 		return True
 	return False
 
+def is_the_main_plist_file(file_name):
+	tmp_name_list = file_name.split("/")
+	list_size = len(tmp_name_list)
+	if(list_size == 3):
+		return True
+	return False
 
 def unzip_inputfile(tmp_prog_arg):
 	print("start to unzip input file")
@@ -146,8 +151,11 @@ def unzip_allplistfile(tmp_prog_arg):
 	ipa_file = zipfile.ZipFile(tmp_prog_arg.inputfile)
 	name_list = ipa_file.namelist()
 	plist_file = []
+	tmp_main_plist_file_path = ""
 	for zip_file_name in name_list:
 		if zip_file_name.endswith("/Info.plist"):
+			if is_the_main_plist_file(zip_file_name):
+				tmp_main_plist_file_path = zip_file_name
 			plist_file.append(zip_file_name)
 	if(len(plist_file)==0):
 		print("did not find info.plist")
@@ -159,7 +167,11 @@ def unzip_allplistfile(tmp_prog_arg):
 		shutil.copy(tmp_prog_arg.tmp_file_path + "/" + tmp_plist_file, tmp_prog_arg.plist_file_path + str(plist_file_size))
 		tmp_prog_arg.all_plist_file_path.append(tmp_prog_arg.plist_file_path + str(plist_file_size))
 		plist_file_size = plist_file_size + 1
-
+	if(tmp_main_plist_file_path == ""):
+		print("did not find main info.plist")
+		sys.exit()
+	ipa_file.extract(tmp_main_plist_file_path, path = tmp_prog_arg.tmp_file_path)
+	shutil.copy(tmp_prog_arg.tmp_file_path + "/" + tmp_main_plist_file_path, tmp_prog_arg.main_plist_file_path)
 
 def lipo_file(tmp_prog_arg):
 	print("start to thin mach-o file")
@@ -343,20 +355,18 @@ def get_and_check_permissions(tmp_prog_arg):
 			#if(rule["key"])
 
 def get_ipa_info(tmp_prog_arg):
-	for plist_file_path in tmp_prog_arg.all_plist_file_path:
-		#plist_file = open(plist_file_path,"rb")
-		#plist_lib = plistlib.loads(plist_file_path)
-		plist_file = plistlib.readPlist(plist_file_path)
-		if("CFBundleName" in plist_file.keys()):
-			tmp_prog_arg.my_app_info.app_name = plist_file["CFBundleName"]
-		if("CFBundleIdentifier" in plist_file.keys()):
-			tmp_prog_arg.my_app_info.app_package = plist_file["CFBundleIdentifier"]
-		if("CFBundleShortVersionString" in plist_file.keys()):
-			tmp_prog_arg.my_app_info.app_versionName = plist_file["CFBundleShortVersionString"]
-		if("CFBundleVersion" in plist_file.keys()):
-			tmp_prog_arg.my_app_info.app_versionCode = plist_file["CFBundleVersion"]
-		if("MinimumOSVersion" in plist_file.keys()):
-			tmp_prog_arg.my_app_info.app_minOsVersion = plist_file["MinimumOSVersion"]
+	
+	plist_file = plistlib.readPlist(tmp_prog_arg.main_plist_file_path)
+	if("CFBundleName" in plist_file.keys()):
+		tmp_prog_arg.my_app_info.app_name = plist_file["CFBundleName"]
+	if("CFBundleIdentifier" in plist_file.keys()):
+		tmp_prog_arg.my_app_info.app_package = plist_file["CFBundleIdentifier"]
+	if("CFBundleShortVersionString" in plist_file.keys()):
+		tmp_prog_arg.my_app_info.app_versionName = plist_file["CFBundleShortVersionString"]
+	if("CFBundleVersion" in plist_file.keys()):
+		tmp_prog_arg.my_app_info.app_versionCode = plist_file["CFBundleVersion"]
+	if("MinimumOSVersion" in plist_file.keys()):
+		tmp_prog_arg.my_app_info.app_minOsVersion = plist_file["MinimumOSVersion"]
 
 
 def print_app_info(tmp_prog_arg):

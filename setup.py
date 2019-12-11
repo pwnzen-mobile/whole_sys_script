@@ -196,7 +196,7 @@ def lipo_file(tmp_prog_arg):
 def ios_to_ir(tmp_prog_arg):
 	print("start to translate arm64 to IR")
 	tools_dir = os.getcwd() + "/tools/llvm-dec"
-	llvm_dec_cmd = tools_dir + " " + tmp_prog_arg.thin_file_path + " -bc " + " -O1 -MC_opt " + " -o " + tmp_prog_arg.ir_file_path
+	llvm_dec_cmd = tools_dir + " " + tmp_prog_arg.thin_file_path + " -bc " + " -O1 -MC_opt -REC_add " + " -o " + tmp_prog_arg.ir_file_path
 	print(llvm_dec_cmd)
 	p = subprocess.Popen(llvm_dec_cmd, shell = True, stdout = PIPE, stderr = PIPE)
 	p.wait()
@@ -380,6 +380,7 @@ def print_app_info(tmp_prog_arg):
 	head = head + "<h2> app short version string : " + tmp_prog_arg.my_app_info.app_versionName + "</h2>"
 	head = head + "<h2> app version : " + tmp_prog_arg.my_app_info.app_versionCode + "</h2>"
 	head = head + "<h2> app min os version : " + tmp_prog_arg.my_app_info.app_minOsVersion + "</h2>"
+	head = head + "<h2> is obfuscated : " + chg_bool_to_string(tmp_prog_arg.my_app_info.is_obfuscated) + "</h2>"
 	head = head + "</div>"
 	head = head + """
 	</body>
